@@ -86,6 +86,7 @@
 }
 
 .detail-pane .detail-field {
+    -fx-pref-width: 600px;
     -fx-text-fill: black;
 }
 
