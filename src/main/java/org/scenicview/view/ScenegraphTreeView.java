@@ -200,14 +200,16 @@ public class ScenegraphTreeView extends TreeView<SVNode> {
     private MenuItem getCopyIdMenuItem() {
         final MenuItem copyId = new MenuItem("Copy node ID");
         copyId.setOnAction(event -> {
-            final String id = scenicView.getSelectedNode().getId();
+            final SVNode selectedNode = scenicView.getSelectedNode();
+            if (selectedNode != null) {
+                final String id = selectedNode.getId();
 
-            final Clipboard clipboard = Clipboard.getSystemClipboard();
-            final ClipboardContent content = new ClipboardContent();
-            content.putString(id);
-            content.putHtml(id);
-            clipboard.setContent(content);
-
+                final Clipboard clipboard = Clipboard.getSystemClipboard();
+                final ClipboardContent content = new ClipboardContent();
+                content.putString(id);
+                content.putHtml(id);
+                clipboard.setContent(content);
+            }
         });
 
         final BooleanBinding idExistBinding = Bindings.createBooleanBinding(() -> {
