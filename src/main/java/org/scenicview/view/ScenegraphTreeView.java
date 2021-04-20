@@ -1,6 +1,6 @@
 /*
- * Scenic View, 
- * Copyright (C) 2012 Jonathan Giles, Ander Ruiz, Amy Fowler 
+ * Scenic View,
+ * Copyright (C) 2012 Jonathan Giles, Ander Ruiz, Amy Fowler
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import javafx.beans.binding.Bindings;
+import javafx.beans.binding.BooleanBinding;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.scene.control.CheckMenuItem;
@@ -34,6 +36,8 @@ import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeItem.TreeModificationEvent;
 import javafx.scene.control.TreeView;
 import javafx.scene.image.ImageView;
+import javafx.scene.input.Clipboard;
+import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.paint.Color;
 import javafx.stage.WindowEvent;
@@ -75,14 +79,14 @@ public class ScenegraphTreeView extends TreeView<SVNode> {
         this.scenicView = scenicView;
         setId("main-treeview");
         setShowRoot(false);
-        
+
         getSelectionModel().selectedItemProperty().addListener((ov, oldValue, newValue) -> {
             if (!blockSelection) {
                 final TreeItem<SVNode> selected = newValue;
                 setSelectedNode(selected != null && !(selected.getValue() instanceof SVDummyNode) ? selected : null);
             }
         });
-        
+
         setCellFactory(node -> new TreeCell<SVNode>() {
             @Override public void updateItem(final SVNode item, final boolean empty) {
                 super.updateItem(item, empty);
@@ -103,7 +107,7 @@ public class ScenegraphTreeView extends TreeView<SVNode> {
                 }
             }
         });
-        
+
         setOnMousePressed(ev -> {
             if (selectedCM != null) {
                 selectedCM.hide();
@@ -113,7 +117,7 @@ public class ScenegraphTreeView extends TreeView<SVNode> {
                 showContextMenu(ev);
             }
         });
-        
+
         /**
          * Ugly patch for a problem that causes a reselection of the TreeItem on
          * mouseRelease even if the selection has been cleared
@@ -123,7 +127,7 @@ public class ScenegraphTreeView extends TreeView<SVNode> {
                 showContextMenu(ev);
             }
         });
-        
+
     }
 
     public void showContextMenu(final MouseEvent ev) {
@@ -166,24 +170,53 @@ public class ScenegraphTreeView extends TreeView<SVNode> {
 
             final Menu goTo = new Menu("Go to");
             goTo.getItems().addAll(
-                    goToTab(DetailsTab.TAB_NAME), 
-                    goToTab(EventLogTab.TAB_NAME), 
+                    goToTab(DetailsTab.TAB_NAME),
+                    goToTab(EventLogTab.TAB_NAME),
                     goToTab(JavaDocTab.TAB_NAME),
                     goToTab(ThreeDOMTab.TAB_NAME));
 
             final MenuItem close = new MenuItem("Close");
             close.setOnAction(e -> selectedCM.hide());
-            
+
             final MenuItem deselect = new MenuItem("Clear selection");
             deselect.setOnAction(e -> getSelectionModel().clearSelection());
-            
+
             final MenuItem removeNode = new MenuItem("Remove node");
             removeNode.setOnAction(e -> scenicView.removeNode());
             deselect.disableProperty().bind(getSelectionModel().selectedItemProperty().isNull());
 
-            selectedCM.getItems().addAll(deselect, removeNode, forcedCollapse, forcedExpand, goTo, close);
+            final MenuItem copyId = getCopyIdMenuItem();
+
+            selectedCM.getItems().addAll(copyId, deselect, removeNode, forcedCollapse, forcedExpand, goTo, close);
             selectedCM.show(ScenegraphTreeView.this, ev.getScreenX(), ev.getScreenY());
         }
+    }
+
+    /**
+     * For more convenient copying of node id.
+     *
+     * @return copy node if menu item
+     */
+    private MenuItem getCopyIdMenuItem() {
+        final MenuItem copyId = new MenuItem("Copy node ID");
+        copyId.setOnAction(event -> {
+            final String id = scenicView.getSelectedNode().getId();
+
+            final Clipboard clipboard = Clipboard.getSystemClipboard();
+            final ClipboardContent content = new ClipboardContent();
+            content.putString(id);
+            content.putHtml(id);
+            clipboard.setContent(content);
+
+        });
+
+        final BooleanBinding idExistBinding = Bindings.createBooleanBinding(() -> {
+                    final TreeItem<SVNode> selectedItem = getSelectionModel().getSelectedItem();
+                    return selectedItem != null && selectedItem.getValue().getId() != null;
+                },
+                getSelectionModel().selectedItemProperty());
+        copyId.disableProperty().bind(idExistBinding.not());
+        return copyId;
     }
 
     private MenuItem goToTab(final String text) {
@@ -209,7 +242,7 @@ public class ScenegraphTreeView extends TreeView<SVNode> {
         if (item != null) {
             TreeItem<SVNode> stageItem = findStageForNode(item);
             if (stageItem == null) return;
-            
+
             SVNode stageSVNode = stageItem.getValue();
             scenicView.setSelectedNode(stages.get(stageSVNode), item.getValue());
         } else {
@@ -219,7 +252,7 @@ public class ScenegraphTreeView extends TreeView<SVNode> {
 
     TreeItem<SVNode> findStageForNode(final TreeItem<SVNode> item) {
         if (item == null || item.getValue() == null) return null;
-        
+
         if (item.getValue() instanceof SVDummyNode && ((SVDummyNode) item.getValue()).getNodeType() == NodeType.STAGE) {
             return item;
         } else {
@@ -315,7 +348,7 @@ public class ScenegraphTreeView extends TreeView<SVNode> {
 
     /**
      * This is a patch for TreeView indentation issue
-     * 
+     *
      * @param realNode
      */
     void patchRoot(final TreeItem<SVNode> realNode) {
@@ -439,7 +472,7 @@ public class ScenegraphTreeView extends TreeView<SVNode> {
                 final TreeItem<SVNode> treeItem = getTreeItem(node);
                 /**
                  * TODO Analyze this problem:
-                 * 
+                 *
                  * In some situations a parent node could be removed by
                  * visibility and after that a children could also change its
                  * visibility to false triggering a removal that actually does
@@ -503,7 +536,7 @@ public class ScenegraphTreeView extends TreeView<SVNode> {
                     final SVNode parent = alive.getParent();
                     final TreeItem<SVNode> parentTreeItem = getTreeItem(parent);
                     if (parentTreeItem == null) return;
-                    
+
                     /**
                      * In some situations node could be previously added
                      */
@@ -566,7 +599,7 @@ public class ScenegraphTreeView extends TreeView<SVNode> {
     private TreeItem<SVNode> createTreeItem(final SVNode node, final boolean showNodesIdInTree, final boolean showFilteredNodesInTree) {
         /**
          * Strategy:
-         * 
+         *
          * 1) Check is the node is valid for all the filters 2) If it is,
          * include the node and its valid children 3) If it is not and the
          * filter does not allow children to be included do not include the node
